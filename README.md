@@ -1,7 +1,7 @@
 # qnap-utils
 Utilities to unpack QNAP firmware images and QPKG files
 
-##extract_qnap_fw.sh
+## extract_qnap_fw.sh
 
 This script unpacks a firmware image. The firmware image can be passed in the
 original form (\*.img), decrypted (\*.tgz), or as a source directory.
@@ -18,7 +18,7 @@ this results in:
     destdir/sysroot         unpacked initrd/initramfs, rootfs2, rootfs_ext
     destdir/qpkg            unpacked qpkg.tar
 
-##extract_qpkg.sh
+## extract_qpkg.sh
 
 This script unpacks a QPKG file.
 

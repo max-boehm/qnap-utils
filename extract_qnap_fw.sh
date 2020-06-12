@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Script to extract the contents from a QNAP firmware image.
 #
@@ -119,14 +119,14 @@ if [ -e $UIMAGE ]; then
 
   a=`od -t x1 -w4 -Ad -v $UIMAGE | grep '1f 8b 08 00' | awk '{print $1}'`
   if [ ! -z "$a" ]; then
-    dd if=$UIMAGE bs=1 skip=$a of=$IMAGE.gz status=none
+    dd if=$UIMAGE bs=$a skip=1 of=$IMAGE.gz status=none
     gunzip --quiet $IMAGE.gz || [ $? -eq 2 ]
     echo "- extracted and uncompressed '$IMAGE' at offset $a"
 
     i=0
     for a in `od -t x1 -w4 -Ad -v $IMAGE | grep '1f 8b 08 00' | awk '{print $1}'`; do
       i=$((i+1))
-      dd if=$IMAGE bs=1 skip=$a of=$IMAGE.part$i.gz status=none
+      dd if=$IMAGE bs=$a skip=1 of=$IMAGE.part$i.gz status=none
       gunzip --quiet $IMAGE.part$i.gz || [ $? -eq 2 ] 
       echo "- extracted and uncompressed '$IMAGE.part$i' at offset $a"
     done
