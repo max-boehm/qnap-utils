@@ -78,7 +78,8 @@ if [ -f $SRC ]; then
     echo "----------------------------------------------"
     echo "extracting '$SRC' into '$DEST/fw'..."
     mkdir -p $DEST/fw
-    tar xf $SRC -C $DEST/fw
+    # ignore the gzip `trailing garbage` error
+    tar xf $SRC -C $DEST/fw || true
     SRC=$DEST/fw
   fi
 fi
@@ -216,8 +217,14 @@ if [ -e $ROOTFS2 ]; then
 fi
 
 if [ -e $ROOTFS2_BZ ]; then
+  if file $ROOTFS2_BZ | grep -q LZMA ; then
+    # x51
+    echo "extracting $ROOTFS2_BZ (lzma, tar)..."
+    tar --lzma -xf $ROOTFS2_BZ -C $SYSROOT
+  else
   echo "extracting $ROOTFS2_BZ (bzip2, tar)..."
   tar -xjf $ROOTFS2_BZ -C $SYSROOT
+  fi
 fi
 
 if [ -f $ROOTFS2_IMG ]; then
