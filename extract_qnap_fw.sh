@@ -52,6 +52,38 @@ fi
 SRC="$1"
 DEST="$2"
 
+extract-image() {
+    local image="${1}" dst="${2}"
+    shift 2 # leaves mount options in ${@}
+
+    local mntdir
+    mntdir="$(sudo mktemp -d -t qnap-utils-XXXXXX -p /mnt)"
+    echo "- mount image '${image}' on '${mntdir}'${*:+, options: ${@}}"
+    sudo mount "${@}" "${image}" "${mntdir}"
+    echo "- copy image contents to '${dst}/'"
+    # maybe run cp with sudo to preserve owner/group and avoid access denied
+    # errors?
+    cp -a "${mntdir}/"* "${dst}/" || {
+        echo "- WARNING: failed to copy some (if not all) files"
+    }
+    echo "- cleanup: '${mntdir}'"
+    sudo umount "${mntdir}"
+    sudo rmdir "${mntdir}"
+}
+
+extract-image-with-tar() {
+    local image="${1}" dst="${2}" tarfile="${3}"
+    shift 3 # leaves mount options in ${@}
+
+    local tmpdst
+    tmpdst="$(mktemp -d -p "${TEMPDIR:-/tmp}")"
+    extract-image "${image}" "${tmpdst}" "${@}"
+    echo "- extract data from '${tarfile}' to '${dst}/'"
+    # maybe run tar with sudo to preserve owner/group?
+    tar -xjf "${tmpdst}/${tarfile}" -C "${dst}"
+    sudo rm -rf "${tmpdst}"
+}
+
 if [ -e $DEST ]; then echo "destdir '$DEST' must not already exist"; exit; fi
 
 echo "SRC=$SRC, DEST=$DEST"
@@ -173,14 +205,7 @@ if [ -e $UBI ]; then
   echo "- mounting ubifs file system"
   # mount the ubifs to host 
   sudo modprobe ubifs
-  sudo mkdir -p /mnt/ubi
-  sudo mount -t ubifs ubi0 /mnt/ubi
-
-  echo "- copying contents"
-  cp -a /mnt/ubi/boot/* $DEST
-
-  echo "- cleanup"
-  sudo umount /mnt/ubi
+  extract-image ubi0 "${DEST}" -t ubifs
   sudo ubidetach /dev/ubi_ctrl -m0
   sudo modprobe -r nandsim
 fi
@@ -202,9 +227,7 @@ if [ -e $INITRD ]; then
   if file $INITRD | grep -q gzip ; then
     echo "extracting '$INITRD' (gzip)..."
     gzip -d <$INITRD >$DEST/initrd.$$
-    sudo mount -t ext2 $DEST/initrd.$$ /mnt -oro,loop
-    cp -a /mnt/* $SYSROOT || true
-    sudo umount /mnt
+    extract-image "${DEST}/initrd.${$}" "${SYSROOT}" -t ext2 -oro,loop
     rm $DEST/initrd.$$
   fi
 fi
@@ -229,9 +252,8 @@ fi
 
 if [ -f $ROOTFS2_IMG ]; then
   echo "extracting $ROOTFS2_IMG (ext2)..."
-  sudo mount -t ext2 $ROOTFS2_IMG /mnt -oro,loop
-  tar -xjf /mnt/rootfs2.bz -C $SYSROOT
-  sudo umount /mnt
+  extract-image-with-tar \
+      "${ROOTFS2_IMG}" "${SYSROOT}" 'rootfs2.bz' -t ext2 -oro,loop
 fi
 
 echo "----------------------------------------------"
@@ -239,9 +261,7 @@ echo "----------------------------------------------"
 if [ -e $ROOTFS_EXT ]; then
   echo "extracting $ROOTFS_EXT..."
   tar xzvf $ROOTFS_EXT
-  sudo mount rootfs_ext.img /mnt -oro,loop
-  cp -a /mnt/* $SYSROOT || true
-  sudo umount /mnt
+  extract-image rootfs_ext.img "${SYSROOT}" -oro,loop
   rm rootfs_ext.img
 fi
 
